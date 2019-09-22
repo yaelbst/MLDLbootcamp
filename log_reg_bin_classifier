@@ -1,0 +1,253 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Mar 26 11:31:34 2019
+
+@author: yael
+"""
+
+import numpy as np
+from matplotlib import pyplot as plt
+from sklearn.model_selection import train_test_split
+
+#1 
+def random_normal_2Dpoints(center, points_nb):
+    return np.random.normal(loc = center, size=[points_nb, 2])
+
+#2
+#Prepares train and test data from sample points
+def prepare_train_test_data(center1, center2, points_nb):
+   P1 = random_normal_2Dpoints(center1, points_nb)
+   P2 = random_normal_2Dpoints(center2, points_nb)
+#print(P1)
+#print(P1.shape)
+
+   plt.plot(P1[:,0],P1[:,1],"bo")
+   plt.plot(P2[:,0],P2[:,1],"ro")
+   plt.show()
+
+#3
+#X is the first group of points (the blue ones) followed by the second group of points (the red ones)
+   X = np.vstack((P1, P2))
+#print(X.shape)
+   Ones = np.ones(X.shape[0]).reshape((X.shape[0],1))
+   X = np.hstack((Ones,X))
+#print("X ready with shape: {}".format(X.shape))
+
+#Y Let's say the blue points are class 0, and the red ones are class 1
+   Y = np.vstack((np.zeros((points_nb,1)),np.ones((points_nb,1))))
+
+#print("Y {}".format(Y))
+#   A single line thanks to sklearn function
+   X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, shuffle=True)
+#I put X and Y together just so they go through the same shuffle, so i can divide the data into train and test sets
+#   Data = np.hstack((X, Y))
+#   print(Data.shape)
+#   np.random.shuffle(Data)
+##Divide the data into 80% for train n and 20% test 
+#   print("Data {}".format(len(Data)))
+#   n = int(0.8 * len(Data))
+#   Data_train = np.array(Data[0:n])
+#   print("Data_train shape {}".format(Data_train.shape))
+#   Data_test = np.array(Data[n:])
+#   print("Data_test shape {}".format(Data_test.shape))
+#
+#   X_train = Data_train[:,0:3]
+#   Y_train = Data_train[:,-1].reshape(n,1)
+#   X_test = Data_test[:,0:3]
+#   Y_test = Data_test[:,-1].reshape(1-n,1)
+#   print(X.shape)
+#   print(Y.shape)
+   return X_train, Y_train, X_test, Y_test
+
+#4
+def sigmoid(x):
+    return 1. / (1 + np.exp(-x))
+
+def prediction(X,W,epsilon):
+  n = len(X)
+  z = np.dot(X, W)
+  z_pred =[]
+  sig = sigmoid(z)
+  for pred in sig:
+      if pred > 0.5:
+        z_pred.append(1- epsilon)
+      else:
+        z_pred.append(0+ epsilon)
+  prediction = np.array(z_pred).reshape(n,1)
+#  print("prediction.shape {}".format(prediction.shape))
+  return prediction
+
+
+#6 This is also called cross-entropy loss
+def loss_function(X, Y, predictions, W):
+#    Cost = (labels*log(predictions) + (1-labels)*log(1-predictions) ) / len(labels)
+    observations = len(Y)
+    #Take the error when label=1
+    class1_loss = -Y * np.log(predictions)
+#    print("class1_loss {}".format(class1_loss))
+#    print("clas1_shape {}".format(class1_loss.shape))
+#    print("class1_mean {}".format(np.mean(class1_loss)))
+    #Take the error when label=0
+    class2_loss =  -(1-Y) * np.log(1-predictions)
+#    print("class2_shape {}".format(class2_loss.shape))
+#    print("class2_mean {}".format(class2_loss.mean()))
+    #Take the sum of both losses
+    loss = class1_loss + class2_loss
+#    print("loss shape {}".format(loss.shape))
+    #Take the average loss
+    l = np.sum(loss) / observations
+#    print("loss {}".format(l))
+    return l
+
+def gradient(X, Y, predictions, W):
+#   gradient = dlossdW = (Y - predictions)X
+    gradient = (np.dot(X.T, -(Y - predictions)))/len(Y)
+#    print("gradient shape {}".format(gradient.shape))
+    return gradient
+
+def gradient_descent(X, Y, lr, params, epsilon, epochs):
+    x = np.linspace(0, 200, 100)
+    W = np.random.rand(params,1)
+#    W = np.zeros((3,1))
+    print("Randomly initialize W :{}".format(W))
+    loss_vect = []
+#    pred = prediction(X, W, epsilon)
+#    print("pred shape {}".format(pred.shape))
+    for i in range(epochs):
+#      pred = prediction(X, W, epsilon)
+      pred = sigmoid(np.dot(X, W))
+      loss = loss_function(X, Y, pred, W)
+#      print("W :{}".format(W))
+      grad = gradient(X, Y, pred, W)
+      
+#      print("grad: {}".format(grad))
+#      print("Wafter gradient :{}".format(W))
+      W = W - lr * grad
+#      print("Wafter step :{}".format(W))
+#      print("iteration : {}".format(i))
+#      print("W: {}".format(W))
+#      pred = prediction(X, W, epsilon)
+      
+      loss_vect.append(loss)
+#      print("Loss: {}".format(loss))
+    plt.plot(loss_vect)
+    plt.show()
+    return W
+
+def decision_boundary(prob, epsilon):
+  return 1 if prob >= .5 else 0 
+
+def test(X_test, Y_test, W, epsilon):
+    Y_pred = []
+    l = len(X_test)
+    count = 0
+    for i, occ in enumerate(X_test):
+        Wx = np.dot(W.T, occ)
+        S = sigmoid(Wx)
+        Y_pred.append(decision_boundary(S, epsilon))
+        if decision_boundary(S, epsilon) == Y_test[i]:
+            count += 1
+    acc = (count/l)*100
+    Y_pred = np.array(Y_pred).reshape((l,1))
+    Result = np.hstack((X_test, Y_test, Y_pred))
+#    print("Result :{}".format(Result))
+    return Result, acc
+
+X_tr, Y_tr, X_te, Y_te = prepare_train_test_data((4,1),(1,1),100)
+
+Thetas = gradient_descent(X_tr, Y_tr, 0.1, 3, 1e-7, 200)
+print(Thetas)
+Result, acc = test(X_te, Y_te, Thetas, 1e-7)
+print("accuracy: {}%".format(acc))
+
+Thetas = gradient_descent(X_tr, Y_tr, 0.4, 3, 1e-7, 150)
+print(Thetas)
+Result, accu = test(X_te, Y_te, Thetas, 1e-7)
+print("accuracy: {}%".format(accu))
+
+
+#10
+
+def prepare_train_test_circle_data(l1,l2, g1,g2, points_nb):
+#  Create the circles
+   rho = np.sqrt(np.random.uniform(3.5, 4, points_nb))
+   phi = np.random.uniform(0, 4*np.pi, points_nb)
+
+   rho2 = np.sqrt(np.random.uniform(2, 2.6, points_nb))
+   phiA = np.random.uniform(0, 4*np.pi, points_nb)
+
+   x = rho * np.cos(phi)
+   y = rho * np.sin(phi)
+   x = x.reshape(points_nb,1)
+   y = y.reshape(points_nb,1)
+
+   x2 = np.square(x)
+   y2 = np.square(y)
+#   nf = x2 + y2
+#   print("nf: {}".format(nf))
+
+#  2 feature columns: our coordinates for the first big red circle "R"
+   R = np.hstack((x,y))
+#  Draw the 1st circle: the big red one
+   plt.scatter(x, y, s = 4, c="r")
+
+   xA = rho2 * np.cos(phiA)
+   yA = rho2 * np.sin(phiA)
+   xA = xA.reshape(points_nb,1)
+   yA = yA.reshape(points_nb,1)
+#   nf2 = np.square(xA)+ np.square(yA)
+
+#  2 feature columns: our coordinates for the second circle: the small blue one "B"
+   B = np.hstack((xA,yA))
+   
+#  All coordinates for the 2 circles:
+   C = np.vstack((R, B))
+   print("C shape: {}".format(C.shape))
+   
+#  Add a ones column for the bias and a new feature column NF with the sum of the squared coordinates for every point
+#  For the new feature column i started by adding the sum of square of coordinates, it worked ok and gave an accuracy of 63 %
+#  I noticed in the course it was mentionned to add the sum of square of coordinates - alpha
+#  I suppose this is linked to the equation of a parabole
+#   So I added -1 to the NF: the accuracy jumped over 90%, 93.75% for the 1st example, 100% for the sec
+   NF = np.square(C[:,0])+ np.square(C[:,1])-1
+   NF = NF.reshape((points_nb*2, 1))
+   print("NF shape: {}".format(NF.shape))
+   Ones = np.ones(points_nb*2).reshape((points_nb*2, 1))
+   X = np.hstack((Ones, C, NF))
+   print("X shape: {}".format(X.shape))
+   
+
+   plt.scatter(xA, yA, s = 4)
+   plt.show()
+   
+#  Create the labels: 
+#  1 for the big red circle, 0 for the blue small one
+   Y = np.vstack((np.ones((points_nb,1)),np.zeros((points_nb,1))))
+   print("Y shape: {}".format(Y.shape))
+   
+   X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, shuffle=True)
+   return X_train, Y_train, X_test, Y_test
+   
+
+X_t, Y_t, X_te, Y_te = prepare_train_test_circle_data(3.5, 4, 2, 2.6, 200)
+Weights = gradient_descent(X_t, Y_t, 0.1, 4, 1e-7, 200)
+print(Weights)
+Result, acc = test(X_te, Y_te, Weights, 1e-7)
+print("accuracy: {}%".format(acc))
+
+
+
+
+
+
+
+
+
+  
+
+
+
+        
+    
+    
